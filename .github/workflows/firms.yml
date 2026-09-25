@@ -1,0 +1,42 @@
+name: Aggiorna focolai FIRMS
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"     # ogni 30 minuti (orario UTC; GitHub puo' ritardare di qualche minuto)
+  workflow_dispatch:            # permette anche l'avvio manuale dalla scheda Actions
+
+permissions:
+  contents: write               # serve per salvare data/firms_puglia.json nel repository
+
+concurrency:
+  group: firms
+  cancel-in-progress: false
+
+jobs:
+  aggiorna:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Scarica i punti di calore sulla Puglia
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+        run: python scripts/fetch_firms.py
+
+      - name: Salva il file solo se e' cambiato
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/firms_puglia.json
+          if git diff --cached --quiet; then
+            echo "Nessuna modifica da salvare."
+          else
+            git commit -m "Aggiorna focolai FIRMS"
+            git pull --rebase
+            git push
+          fi
